@@ -5,42 +5,93 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Civic Reporter</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Enable class-based dark mode in Tailwind CDN
+        tailwind.config = { darkMode: 'class' };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.min.js"></script>
     <style>
         /* Ensures the map takes up the full screen height minus the nav bar */
-        #map { height: calc(100vh - 64px); }
+        /* Top header (64px) + bottom nav (64px) */
+        #map { height: calc(100vh - 128px); }
         .leaflet-container { font-family: 'Inter', sans-serif; }
         /* Simple spinner animation */
-        .spinner { border-top-color: #3498db; animation: spin 1s linear infinite; }
+        .spinner { border-top-color: #10b981; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* User location marker styles */
+        .user-location-marker {
+            background: transparent !important;
+            border: none !important;
+        }
+        
+        /* Pulse animation for user location */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
     </style>
+    <script>
+        // Persisted theme: set ASAP to avoid flash
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const shouldUseDark = saved ? saved === 'dark' : systemPrefersDark;
+            if (shouldUseDark) document.documentElement.classList.add('dark');
+            const color = shouldUseDark ? '#0a0a0a' : '#f9fafb';
+            const meta = document.createElement('meta');
+            meta.name = 'theme-color'; meta.content = color; document.head.appendChild(meta);
+        })();
+    </script>
 </head>
-<body class="bg-gray-50 font-sans flex flex-col h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 dark:text-gray-100 font-sans flex flex-col h-screen">
+
+    <!-- Top App Bar -->
+    <header class="h-16 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur flex items-center px-4 sm:px-6 justify-between">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-city text-emerald-600 dark:text-emerald-400"></i>
+            <h1 class="text-lg sm:text-xl font-semibold tracking-tight">Civic Reporter</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="theme-toggle" type="button" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 shadow-sm hover:shadow transition duration-200 motion-reduce:transition-none" aria-label="Toggle theme">
+                <i id="theme-icon" class="fas fa-moon"></i>
+                <span class="hidden sm:inline text-sm">Theme</span>
+            </button>
+        </div>
+    </header>
 
     <!-- Main Content Area -->
     <main id="content" class="flex-1 overflow-y-auto">
 
         <!-- Screen 1: Report an Issue (Visible by default) -->
         <div id="report-screen">
-            <div class="p-6">
+            <div class="p-6 max-w-2xl mx-auto">
                 <div class="text-center mb-6">
-                    <h1 class="text-3xl font-bold text-gray-800">Report an Issue</h1>
-                    <p class="text-gray-500 mt-1">Pimpri-Chinchwad Civic Reporter</p>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Report an Issue</h2>
+                    <p class="text-gray-500 dark:text-gray-400 mt-1">Jharkhand Civic Reporter</p>
                 </div>
 
                 <!-- Location Info Bar -->
-                <div id="location-info" class="flex items-center justify-center bg-blue-50 p-3 rounded-lg mb-6 border border-blue-200">
-                    <i class="fas fa-location-crosshairs text-blue-500"></i>
-                    <span id="location-text" class="ml-2 text-sm text-blue-700">Fetching your location...</span>
+                <div id="location-info" class="flex items-center justify-center bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl mb-6 border border-emerald-200 dark:border-emerald-900">
+                    <i class="fas fa-location-crosshairs text-emerald-600 dark:text-emerald-400"></i>
+                    <span id="location-text" class="ml-2 text-sm text-emerald-700 dark:text-emerald-300">Fetching your location...</span>
                 </div>
 
                 <!-- Report Submission Form -->
                 <form id="report-form" class="space-y-4">
                     <div>
-                        <label for="issue-type" class="block text-sm font-medium text-gray-700">Type of Issue</label>
-                        <select id="issue-type" class="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <label for="issue-type" class="block text-sm font-medium text-gray-700 dark:text-gray-200">Type of Issue</label>
+                        <select id="issue-type" class="mt-1 block w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
                             <option>Pothole</option>
                             <option>Overflowing Trash Bin</option>
                             <option>Streetlight Outage</option>
@@ -51,15 +102,15 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Add Photo</label>
-                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md cursor-pointer">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Add Photo</label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-700 border-dashed rounded-xl cursor-pointer bg-white dark:bg-gray-800 hover:border-emerald-400/70 transition">
                             <div id="photo-preview-container" class="space-y-1 text-center hidden">
-                                <img id="photo-preview" class="mx-auto h-24 w-auto rounded-md" src="" alt="Photo preview" />
-                                <p class="text-xs text-gray-500">Photo attached. Click to change.</p>
+                                <img id="photo-preview" class="mx-auto h-24 w-auto rounded-lg shadow" src="" alt="Photo preview" />
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Photo attached. Click to change.</p>
                             </div>
                             <div id="upload-prompt" class="space-y-1 text-center">
-                                <i class="fas fa-camera fa-2x mx-auto text-gray-400"></i>
-                                <p class="text-sm text-gray-600">Click to capture or upload</p>
+                                <i class="fas fa-camera fa-2x mx-auto text-gray-400 dark:text-gray-500"></i>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Click to capture or upload</p>
                             </div>
                         </div>
                         <!-- The `capture="environment"` attribute is the key to telling mobile browsers
@@ -68,11 +119,11 @@
                     </div>
 
                     <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700">Description (Optional)</label>
-                        <textarea id="description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Let Gemini describe it from the photo, or add your own details here."></textarea>
+                        <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-200">Description (Optional)</label>
+                        <textarea id="description" rows="3" class="mt-1 block w-full border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm p-3 bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="Let Gemini describe it from the photo, or add your own details here."></textarea>
                     </div>
 
-                    <button type="submit" id="submit-btn" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <button type="submit" id="submit-btn" class="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl shadow-sm text-base sm:text-lg font-semibold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-900 transition">
                         <span id="submit-text">Submit Report</span>
                         <div id="submit-spinner" class="spinner h-5 w-5 rounded-full border-2 border-white border-t-transparent hidden"></div>
                     </button>
@@ -87,12 +138,12 @@
     </main>
 
     <!-- Bottom Navigation Bar -->
-    <nav class="bg-white border-t flex justify-around">
-        <button id="nav-report" class="flex-1 text-center py-3 text-indigo-600 border-t-2 border-indigo-600">
+    <nav class="h-16 bg-white/90 dark:bg-gray-900/90 border-t border-gray-200 dark:border-gray-800 flex justify-around backdrop-blur">
+        <button id="nav-report" class="flex-1 text-center py-3 text-emerald-600 border-t-2 border-emerald-600">
             <i class="fas fa-plus-circle fa-lg"></i>
             <span class="block text-xs">Report</span>
         </button>
-        <button id="nav-map" class="flex-1 text-center py-3 text-gray-500">
+        <button id="nav-map" class="flex-1 text-center py-3 text-gray-500 dark:text-gray-400">
             <i class="fas fa-map-marked-alt fa-lg"></i>
             <span class="block text-xs">View Map</span>
         </button>
@@ -103,8 +154,15 @@
         const API_BASE_URL = 'http://localhost:8080'; // Your backend server URL
 
         // --- STATE MANAGEMENT ---
-        let userLocation = { lat: 18.6298, lng: 73.7997 }; // Default: Pimpri-Chinchwad
+        let userLocation = { lat: 23.6102, lng: 85.2799 }; // Default: Ranchi, Jharkhand
         let photoBase64 = null;
+        let userLocationMarker = null;
+        
+        // Jharkhand state bounds (approximate)
+        const JHARKHAND_BOUNDS = [
+            [21.0, 83.0], // Southwest corner
+            [25.0, 88.0]  // Northeast corner
+        ];
 
         // --- DOM ELEMENTS ---
         const reportScreen = document.getElementById('report-screen');
@@ -121,19 +179,57 @@
         const submitText = document.getElementById('submit-text');
         const submitSpinner = document.getElementById('submit-spinner');
         const descriptionEl = document.getElementById('description');
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
 
         // --- MAP INITIALIZATION ---
         let map;
         let isMapInitialized = false;
         function initializeMap() {
             if (!isMapInitialized && mapScreen && !mapScreen.classList.contains('hidden')) {
-                map = L.map('map').setView([userLocation.lat, userLocation.lng], 15);
+                map = L.map('map', {
+                    maxBounds: JHARKHAND_BOUNDS,
+                    maxBoundsViscosity: 1.0,
+                    minZoom: 7,
+                    maxZoom: 18
+                }).setView([userLocation.lat, userLocation.lng], 8);
+                
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(map);
+                
+                // Restrict map view to Jharkhand bounds
+                map.setMaxBounds(JHARKHAND_BOUNDS);
+                
+                // Add user location marker
+                addUserLocationMarker();
+                
                 isMapInitialized = true;
                 fetchAndDisplayReports();
             }
+        }
+
+        // Add user location marker to map
+        function addUserLocationMarker() {
+            if (!map) return;
+            
+            // Remove existing user location marker
+            if (userLocationMarker) {
+                map.removeLayer(userLocationMarker);
+            }
+            
+            // Create custom user location icon
+            const userLocationIcon = L.divIcon({
+                className: 'user-location-marker',
+                html: '<div class="w-4 h-4 bg-emerald-600 border-2 border-white rounded-full shadow-lg animate-pulse"></div>',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+            
+            // Add marker to map
+            userLocationMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userLocationIcon })
+                .addTo(map)
+                .bindPopup('<b>Your Location</b><br>Current position for reporting');
         }
 
         // --- FUNCTIONS ---
@@ -143,12 +239,13 @@
             const isReportScreen = screen === 'report';
             reportScreen.classList.toggle('hidden', !isReportScreen);
             mapScreen.classList.toggle('hidden', isReportScreen);
-            navReport.classList.toggle('text-indigo-600', isReportScreen);
-            navReport.classList.toggle('border-indigo-600', isReportScreen);
+            navReport.classList.toggle('text-emerald-600', isReportScreen);
+            navReport.classList.toggle('border-emerald-600', isReportScreen);
             navReport.classList.toggle('text-gray-500', !isReportScreen);
-            navMap.classList.toggle('text-indigo-600', !isReportScreen);
-            navMap.classList.toggle('border-indigo-600', !isReportScreen);
+            navMap.classList.toggle('text-emerald-600', !isReportScreen);
+            navMap.classList.toggle('border-emerald-600', !isReportScreen);
             navMap.classList.toggle('text-gray-500', isReportScreen);
+            navMap.classList.toggle('text-gray-400', isReportScreen);
             
             if (!isReportScreen) initializeMap();
         }
@@ -162,6 +259,15 @@
                 navigator.geolocation.getCurrentPosition(pos => {
                     userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                     locationText.textContent = `Location captured successfully`;
+                    
+                    // Update user location marker if map is initialized
+                    if (isMapInitialized) {
+                        addUserLocationMarker();
+                        // Ensure location is within Jharkhand bounds
+                        const lat = Math.max(21.0, Math.min(25.0, userLocation.lat));
+                        const lng = Math.max(83.0, Math.min(88.0, userLocation.lng));
+                        map.setView([lat, lng], 12);
+                    }
                 }, () => {
                     locationText.textContent = 'Location access denied. Using default.';
                 }, { enableHighAccuracy: true });
@@ -170,7 +276,22 @@
             }
         }
 
-        // Handle photo selection and preview.
+        // Theme toggle logic
+        function applyThemeIcon() {
+            const isDark = document.documentElement.classList.contains('dark');
+            themeIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', isDark ? '#0a0a0a' : '#f9fafb');
+        }
+        themeToggle.addEventListener('click', () => {
+            const root = document.documentElement;
+            const willBeDark = !root.classList.contains('dark');
+            root.classList.toggle('dark', willBeDark);
+            localStorage.setItem('theme', willBeDark ? 'dark' : 'light');
+            applyThemeIcon();
+        });
+
+        // Handle photo selection and preview with geotagging.
         // This makes the entire dashed box clickable, which in turn triggers the hidden file input.
         photoPreviewContainer.parentElement.onclick = () => photoUpload.click();
         photoUpload.onchange = (event) => {
@@ -178,14 +299,64 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    photoBase64 = e.target.result.split(',')[1]; // Get just the Base64 part
-                    photoPreview.src = e.target.result;
-                    uploadPrompt.classList.add('hidden');
-                    photoPreviewContainer.classList.remove('hidden');
+                    // Add GPS coordinates to the image EXIF data
+                    addGeotagToImage(e.target.result, userLocation).then(geotaggedDataUrl => {
+                        photoBase64 = geotaggedDataUrl.split(',')[1]; // Get just the Base64 part
+                        photoPreview.src = geotaggedDataUrl;
+                        uploadPrompt.classList.add('hidden');
+                        photoPreviewContainer.classList.remove('hidden');
+                    }).catch(error => {
+                        console.warn('Geotagging failed, using original image:', error);
+                        // Fallback to original image if geotagging fails
+                        photoBase64 = e.target.result.split(',')[1];
+                        photoPreview.src = e.target.result;
+                        uploadPrompt.classList.add('hidden');
+                        photoPreviewContainer.classList.remove('hidden');
+                    });
                 };
                 reader.readAsDataURL(file);
             }
         };
+
+        // Add GPS coordinates to image EXIF data
+        async function addGeotagToImage(dataUrl, location) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Convert data URL to binary
+                    const base64 = dataUrl.split(',')[1];
+                    const binary = atob(base64);
+                    const arrayBuffer = new ArrayBuffer(binary.length);
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    for (let i = 0; i < binary.length; i++) {
+                        uint8Array[i] = binary.charCodeAt(i);
+                    }
+
+                    // Create EXIF data with GPS coordinates
+                    const exifData = {
+                        "0th": {},
+                        "Exif": {},
+                        "GPS": {
+                            [piexif.GPSIFD.GPSLatitudeRef]: location.lat >= 0 ? "N" : "S",
+                            [piexif.GPSIFD.GPSLatitude]: piexif.GPSHelper.degToDmsRational(Math.abs(location.lat)),
+                            [piexif.GPSIFD.GPSLongitudeRef]: location.lng >= 0 ? "E" : "W",
+                            [piexif.GPSIFD.GPSLongitude]: piexif.GPSHelper.degToDmsRational(Math.abs(location.lng)),
+                            [piexif.GPSIFD.GPSAltitudeRef]: 0,
+                            [piexif.GPSIFD.GPSAltitude]: piexif.GPSHelper.degToDmsRational(0) // Default altitude
+                        },
+                        "Interop": {},
+                        "1st": {},
+                        "thumbnail": null
+                    };
+
+                    // Insert EXIF data into image
+                    const exifBinary = piexif.dump(exifData);
+                    const newDataUrl = piexif.insert(exifBinary, dataUrl);
+                    resolve(newDataUrl);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
 
         // Fetch existing reports and display them on the map
         async function fetchAndDisplayReports() {
@@ -249,7 +420,10 @@
                          .addTo(map)
                          .bindPopup(`<b>${reportData.issueType}</b><br>${result.description}<br>Status: Submitted`)
                          .openPopup();
-                    map.setView([userLocation.lat, userLocation.lng], 16);
+                    // Ensure view stays within Jharkhand bounds
+                    const lat = Math.max(21.0, Math.min(25.0, userLocation.lat));
+                    const lng = Math.max(83.0, Math.min(88.0, userLocation.lng));
+                    map.setView([lat, lng], 12);
                 }
 
             } catch (error) {
@@ -264,6 +438,7 @@
 
         // --- INITIAL LOAD ---
         document.addEventListener('DOMContentLoaded', () => {
+            applyThemeIcon();
             getLocation();
         });
 
