@@ -1,19 +1,29 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
+const fs = require('fs');
+const path = require('path');
 const { VertexAI } = require('@google-cloud/vertexai');
 
 // --- INITIALIZATION ---
 
-// Initialize Firebase
-const serviceAccount = require('./serviceAccountKey.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+// Initialize Firebase (prefer env credentials; fallback to local file if present)
+let projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
+if (fs.existsSync(serviceAccountPath)) {
+  const serviceAccount = require('./serviceAccountKey.json');
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  if (!projectId) projectId = serviceAccount.project_id;
+} else {
+  // Uses GOOGLE_APPLICATION_CREDENTIALS or metadata server when on GCP
+  admin.initializeApp();
+}
 const db = admin.firestore();
 
 // Initialize Vertex AI (Gemini)
-const vertex_ai = new VertexAI({ project: serviceAccount.project_id, location: 'us-central1' });
+const vertex_ai = new VertexAI({ project: projectId, location: 'us-central1' });
 const model = 'gemini-1.5-flash-001'; // Or another suitable model
 
 const generativeModel = vertex_ai.getGenerativeModel({
