@@ -73,6 +73,47 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
+// Dev seed endpoint (create default departments and an admin user)
+app.post('/api/admin/seed', async (req, res) => {
+  try {
+    // Protect in production
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'Forbidden in production' });
+    }
+
+    const departments = [
+      { name: 'Sanitation' },
+      { name: 'Public Works' },
+      { name: 'Water Supply' },
+      { name: 'Electricity' },
+      { name: 'Traffic' }
+    ];
+
+    // Upsert departments if model exists
+    for (const d of departments) {
+      // @ts-ignore depends on Prisma schema
+      await prisma.department.upsert({
+        where: { name: d.name },
+        update: {},
+        create: { name: d.name }
+      }).catch(() => undefined);
+    }
+
+    // Create admin user if not exists
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@civic.local';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
+    if (!existing) {
+      const passwordHash = await bcrypt.hash(adminPassword, 10);
+      await prisma.user.create({ data: { email: adminEmail, passwordHash, name: 'Administrator', role: UserRole.ADMIN } });
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ error: 'Seeding failed' });
+  }
+});
+
 // Reports
 app.post('/reports', upload.single('media'), async (req, res) => {
   try {

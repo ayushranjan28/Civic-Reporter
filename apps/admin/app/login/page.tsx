@@ -26,6 +26,7 @@ export default function LoginPage() {
       }
       const data = await res.json(); // { token, role }
       localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('admin_token', data.token);
       if (data.role === 'citizen') router.push('/citizen-dashboard');
       else if (data.role === 'admin') router.push('/admin-dashboard');
       else router.push('/department-dashboard');
