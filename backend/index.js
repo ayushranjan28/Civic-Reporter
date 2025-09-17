@@ -40,6 +40,10 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Allow large JSON payloads for images
 
+// --- STATIC FRONTEND SERVE ---
+const frontendDir = path.join(__dirname, '..', 'frontend');
+app.use(express.static(frontendDir));
+
 
 // --- API ENDPOINTS ---
 
