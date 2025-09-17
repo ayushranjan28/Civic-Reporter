@@ -151,7 +151,8 @@
 
     <script>
         // --- CONFIGURATION ---
-        const API_BASE_URL = 'http://localhost:8080'; // Your backend server URL
+        // Use same-origin when served via Express static hosting
+        const API_BASE_URL = '';
 
         // --- STATE MANAGEMENT ---
         let userLocation = { lat: 23.6102, lng: 85.2799 }; // Default: Ranchi, Jharkhand
