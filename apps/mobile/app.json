@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Civic Reporter",
+    "slug": "civic-reporter",
+    "scheme": "civicreporter",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.civic.reporter",
+      "googleServicesFile": "./google-services.json",
+      "permissions": []
+    },
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        { "android": { "minSdkVersion": 23 } }
+      ]
+    ]
+  }
+}
+
+
