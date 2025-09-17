@@ -9,6 +9,8 @@ pnpm-debug.log*
 .env
 .env.*
 serviceAccountKey.json*
+apps/mobile/google-services.json
+apps/mobile/android/app/google-services.json
 
 # OS/Editor
 .DS_Store

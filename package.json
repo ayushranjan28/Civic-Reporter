@@ -1,21 +1,24 @@
 {
   "name": "civic-reporter",
   "version": "1.0.0",
-  "description": "Civic Reporter - frontend and backend",
+  "description": "Civic Reporter - monorepo (api, admin, mobile, shared)",
   "private": true,
-  "workspaces": [],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "start": "node backend/index.js",
-    "dev": "node backend/index.js",
-    "postinstall": "echo 'No build step'"
+    "dev:api": "npm --workspace @civic/api run dev",
+    "dev:admin": "npm --workspace @civic/admin run dev",
+    "dev:mobile": "npm --workspace @civic/mobile start -- --non-interactive",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:admin\"",
+    "build": "npm -w @civic/api run build && npm -w @civic/admin run build",
+    "postinstall": "npm -w @civic/api run postinstall || echo done"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@google-cloud/vertexai": "^1.10.0",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "firebase-admin": "^13.5.0"
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
