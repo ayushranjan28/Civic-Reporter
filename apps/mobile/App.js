@@ -1,14 +1,18 @@
 import * as React from 'react';
 import { View, Text, Button, Image, TextInput, Alert } from 'react-native';
+import { api } from './api';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 
 export default function App() {
   const [image, setImage] = React.useState(null);
   const [location, setLocation] = React.useState(null);
-  const [title, setTitle] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [category, setCategory] = React.useState('Pothole');
+  const [phone, setPhone] = React.useState('9876543210');
+  const [name, setName] = React.useState('Citizen');
+  const [otp, setOtp] = React.useState('');
+  const [token, setToken] = React.useState(null);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
@@ -29,34 +33,52 @@ export default function App() {
   }, []);
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>Report an Issue</Text>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Auth (OTP)</Text>
+      <TextInput placeholder="Phone (IN)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={{ borderWidth: 1, width: 260, padding: 8, marginTop: 6 }} />
+      <TextInput placeholder="Name" value={name} onChangeText={setName} style={{ borderWidth: 1, width: 260, padding: 8, marginTop: 6 }} />
+      <View style={{ flexDirection: 'row', marginTop: 8, gap: 8 }}>
+        <Button title="Send OTP" onPress={async () => {
+          try {
+            await api.register(phone, name);
+            Alert.alert('OTP Sent', 'Check logs/SMS provider');
+          } catch (e) { Alert.alert('Error', e.message); }
+        }} />
+        <Button title="Verify" onPress={async () => {
+          try {
+            const res = await api.verify(phone, otp);
+            setToken(res.data.token);
+            Alert.alert('Verified', 'You are logged in');
+          } catch (e) { Alert.alert('Error', e.message); }
+        }} />
+      </View>
+      <TextInput placeholder="Enter OTP" value={otp} onChangeText={setOtp} keyboardType="number-pad" style={{ borderWidth: 1, width: 260, padding: 8, marginTop: 6 }} />
+
+      <Text style={{ fontWeight: 'bold', fontSize: 18, marginTop: 20 }}>Report an Issue</Text>
       <Button title="Capture Photo" onPress={pickImage} />
       {image && <Image source={{ uri: image }} style={{ width: 200, height: 200, marginTop: 12 }} />}
       <Text style={{ marginTop: 12 }}>
         {location ? `Lat: ${location.latitude}, Lng: ${location.longitude}` : 'Getting location...'}
       </Text>
-      <TextInput placeholder="Title" value={title} onChangeText={setTitle} style={{ borderWidth: 1, width: 240, marginTop: 12, padding: 8 }} />
       <TextInput placeholder="Description" value={description} onChangeText={setDescription} style={{ borderWidth: 1, width: 240, marginTop: 8, padding: 8 }} />
       <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={{ borderWidth: 1, width: 240, marginTop: 8, padding: 8 }} />
       <Button title="Submit" onPress={async () => {
         try {
-          const form = new FormData();
-          if (image) {
-            form.append('media', { uri: image, name: 'photo.jpg', type: 'image/jpeg' });
-          }
-          form.append('citizenId', 'demo-user');
-          form.append('title', title || 'Untitled');
-          form.append('description', description || '');
-          form.append('category', category || 'Other');
-          form.append('latitude', String(location?.latitude || 0));
-          form.append('longitude', String(location?.longitude || 0));
-          const resp = await fetch('http://10.0.2.2:4000/reports', { method: 'POST', body: form });
-          if (!resp.ok) throw new Error('Failed');
+          if (!token) { Alert.alert('Login required', 'Verify OTP first'); return; }
+          const payload = {
+            description: description || 'No description',
+            category: category || 'Other',
+            location: {
+              lat: location?.latitude || 0,
+              long: location?.longitude || 0
+            },
+            // For now, photoUrl is optional; integrate upload later
+          };
+          const res = await api.createReport(token, payload);
           Alert.alert('Submitted', 'Your report has been submitted');
-          setImage(null); setTitle(''); setDescription('');
+          setImage(null); setDescription('');
         } catch (e) {
-          Alert.alert('Error', 'Submission failed');
+          Alert.alert('Error', e.message || 'Submission failed');
         }
       }} />
     </View>
